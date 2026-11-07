@@ -9,25 +9,25 @@ enum class ImageQuality(
     LOW(
         code = "LOW",
         title = "Baixa",
-        subtitle = "Carregamento ultra-rápido, economia de dados",
+        subtitle = "Filtro de menor tamanho do provedor (ícone)",
         tbsParam = "&tbs=isz:s"
     ),
     MEDIUM(
         code = "MEDIUM",
         title = "Média",
-        subtitle = "Equilíbrio padrão entre velocidade e nitidez",
+        subtitle = "Equilíbrio entre tamanho dos resultados e velocidade",
         tbsParam = "&tbs=isz:m"
     ),
     HIGH(
         code = "HIGH",
         title = "Alta",
-        subtitle = "Alta definição e detalhes nítidos (HD)",
+        subtitle = "Prioriza imagens grandes; a resolução varia por resultado",
         tbsParam = "&tbs=isz:l"
     ),
     ULTRA(
         code = "ULTRA",
         title = "Altíssima",
-        subtitle = "Resolução máxima e detalhes completos",
+        subtitle = "Prioriza imagens a partir de 4 MP, quando disponíveis",
         tbsParam = "&tbs=isz:lt,islt:qsv"
     );
 

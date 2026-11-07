@@ -1,6 +1,7 @@
 package com.example.ui.dashboard
 
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,6 +36,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -49,22 +53,27 @@ import com.example.model.SearchEngine
 import com.example.model.SocialPlatform
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,9 +84,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.data.ScrollSearchStateBus
 import com.example.model.ImageQuality
 import com.example.model.OverlayUiVersion
+import com.example.model.PremiumSearchProvider
 import com.example.model.SearchType
 import com.example.service.FloatingOverlayService
 import com.example.ui.overlay.AddTagDialog
@@ -92,6 +104,9 @@ import com.example.ui.theme.LightBackground
 import com.example.ui.theme.TikTokCyan
 import com.example.ui.theme.TikTokDarkText
 import com.example.ui.theme.TikTokRed
+import com.example.util.GoogleSearchHelper
+import com.example.util.PremiumProviderResult
+import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen(
@@ -131,6 +146,14 @@ fun DashboardScreen(
     val textMuted = if (isDark) Color(0xFFA0A0C0) else Color(0xFF6B6C7B)
 
     var showAddTagDialog by remember { mutableStateOf(false) }
+    var selectedPremiumProvider by remember { mutableStateOf<PremiumSearchProvider?>(null) }
+    var showPremiumRequired by remember { mutableStateOf(false) }
+    var providerQuery by remember { mutableStateOf("") }
+    var reverseImageUrl by remember { mutableStateOf("") }
+    var providerResults by remember { mutableStateOf<List<PremiumProviderResult>>(emptyList()) }
+    var providerSearchError by remember { mutableStateOf<String?>(null) }
+    var providerSearchLoading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier
@@ -462,7 +485,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Image Quality Configuration (applied to F versions)
+            // Image quality filters are used by both Premium and F-version searches.
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
@@ -491,13 +514,13 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Qualidade da Imagem (Versões F)",
+                                    text = "Qualidade da Imagem",
                                     color = Color.White,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Defina a resolução exibida nas versões puras de foto",
+                                    text = "Escolha o tamanho priorizado nas buscas Premium e nas versões puras",
                                     color = Color(0xFFA0A0C0),
                                     fontSize = 11.sp
                                 )
@@ -576,6 +599,58 @@ fun DashboardScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(surfaceColor)
+                        .padding(vertical = 14.dp)
+                ) {
+                    Text(
+                        text = "Buscas Premium",
+                        color = textColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Text(
+                        text = "Recursos SerpApi; contas Básicas veem os cards bloqueados.",
+                        color = textMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(PremiumSearchProvider.entries) { provider ->
+                            PremiumProviderCard(
+                                provider = provider,
+                                isLocked = !isPremiumActive,
+                                isDark = isDark,
+                                onClick = {
+                                    if (!isPremiumActive) {
+                                        showPremiumRequired = true
+                                    } else {
+                                        providerQuery = if (provider.requiresImageUrl) {
+                                            ""
+                                        } else {
+                                            ScrollSearchStateBus.getEffectiveSearchQuery()
+                                        }
+                                        reverseImageUrl = ""
+                                        providerResults = emptyList()
+                                        providerSearchError = null
+                                        selectedPremiumProvider = provider
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -838,7 +913,7 @@ fun DashboardScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = if (isHighQualityFilter) "Filtro Alta Qualidade (HD): ATIVADO" else "Filtro Alta Qualidade (HD): DESATIVADO",
+                                            text = if (isHighQualityFilter) "Priorizar imagens maiores: ATIVADO" else "Priorizar imagens maiores: DESATIVADO",
                                             color = if (isHighQualityFilter) TikTokCyan else textColor,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
@@ -849,7 +924,7 @@ fun DashboardScreen(
                                             color = if (isHighQualityFilter) TikTokCyan else Color.Gray
                                         ) {
                                             Text(
-                                                text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                                                text = if (isHighQualityFilter) "Tamanho: ON" else "Tamanho: OFF",
                                                 color = Color.Black,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.ExtraBold,
@@ -1537,6 +1612,196 @@ fun DashboardScreen(
             onDismiss = { showAddTagDialog = false },
             onAddTag = { ScrollSearchStateBus.addCustomTag(it) }
         )
+    }
+
+    if (showPremiumRequired) {
+        AlertDialog(
+            onDismissRequest = { showPremiumRequired = false },
+            title = { Text("Recurso Premium") },
+            text = { Text("Este card está disponível no plano Premium. Os resultados também dependem da configuração e dos limites da conta SerpApi.") },
+            confirmButton = {
+                TextButton(onClick = { showPremiumRequired = false }) {
+                    Text("Entendi")
+                }
+            }
+        )
+    }
+
+    selectedPremiumProvider?.let { provider ->
+        AlertDialog(
+            onDismissRequest = {
+                if (!providerSearchLoading) selectedPremiumProvider = null
+            },
+            title = { Text(provider.title) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(440.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(provider.description, color = textMuted, fontSize = 12.sp)
+                    if (!provider.requiresImageUrl) {
+                        OutlinedTextField(
+                            value = providerQuery,
+                            onValueChange = { providerQuery = it },
+                            label = { Text("O que deseja buscar?") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        OutlinedTextField(
+                            value = reverseImageUrl,
+                            onValueChange = { reverseImageUrl = it },
+                            label = { Text("URL HTTPS de uma imagem") },
+                            supportingText = { Text("A imagem precisa estar hospedada e acessível publicamente.") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            providerSearchLoading = true
+                            providerSearchError = null
+                            providerResults = emptyList()
+                            coroutineScope.launch {
+                                try {
+                                    val result = GoogleSearchHelper.fetchPremiumProviderResults(
+                                        provider = provider,
+                                        query = providerQuery,
+                                        imageUrl = reverseImageUrl
+                                    )
+                                    result.onSuccess { providerResults = it }
+                                        .onFailure { providerSearchError = it.message ?: "Não foi possível concluir a busca." }
+                                } finally {
+                                    providerSearchLoading = false
+                                }
+                            }
+                        },
+                        enabled = !providerSearchLoading &&
+                            (if (provider.requiresImageUrl) reverseImageUrl.startsWith("https://", true)
+                            else providerQuery.trim().length >= 2),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (providerSearchLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (providerSearchLoading) "Buscando..." else "Pesquisar")
+                    }
+                    providerSearchError?.let {
+                        Text(it, color = Color(0xFFFF8A80), fontSize = 12.sp)
+                    }
+                    if (providerResults.isEmpty() && !providerSearchLoading && providerSearchError == null) {
+                        Text("Os resultados aparecerão aqui.", color = textMuted, fontSize = 12.sp)
+                    }
+                    providerResults.take(30).forEach { result ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.url)))
+                                        selectedPremiumProvider = null
+                                    } catch (_: ActivityNotFoundException) {
+                                        providerSearchError = "Não há um navegador disponível para abrir este resultado."
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                result.previewUrl?.let { preview ->
+                                    AsyncImage(
+                                        model = preview,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(result.title, color = textColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    if (result.description.isNotBlank()) {
+                                        Text(result.description, color = textMuted, fontSize = 11.sp, maxLines = 3)
+                                    }
+                                    if (result.source.isNotBlank()) {
+                                        Text(result.source, color = TikTokCyan, fontSize = 10.sp)
+                                    }
+                                }
+                                if (providerResults.size > 30) {
+                                    Text(
+                                        text = "Mostrando 30 de ${providerResults.size} resultados.",
+                                        color = textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { selectedPremiumProvider = null },
+                    enabled = !providerSearchLoading
+                ) { Text("Fechar") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PremiumProviderCard(
+    provider: PremiumSearchProvider,
+    isLocked: Boolean,
+    isDark: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)
+        ),
+        modifier = Modifier
+            .width(176.dp)
+            .height(108.dp)
+            .clickable(onClick = onClick)
+            .testTag("premium_provider_${provider.id}")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(provider.title, color = if (isDark) Color.White else TikTokDarkText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(provider.description, color = if (isDark) Color.LightGray else Color(0xFF6B6C7B), fontSize = 10.sp, maxLines = 2)
+            }
+            if (isLocked) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Bloqueado no plano Básico",
+                    tint = Color(0xFFFFD700),
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "Disponível no Premium",
+                    tint = Color(0xFFFFD700),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 

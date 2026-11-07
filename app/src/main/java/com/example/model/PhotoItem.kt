@@ -6,5 +6,6 @@ data class PhotoItem(
     val title: String = "",
     val sourceDomain: String = "",
     val width: Int = 400,
-    val height: Int = 500
+    val height: Int = 500,
+    val previewUrl: String? = null
 )

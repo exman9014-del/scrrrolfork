@@ -723,7 +723,7 @@ fun PlanComparisonCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isApiConfigured) "Google Images via SerpApi: backend configurado" else "Configurar backend de imagens",
+                            text = if (isApiConfigured) "Buscas SerpApi: backend configurado" else "Configurar backend de buscas",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = textColor

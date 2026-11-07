@@ -80,6 +80,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PhotoDetailDialog(
     images: List<String>,
+    fallbackImages: List<String> = emptyList(),
     initialIndex: Int = 0,
     onDismiss: () -> Unit
 ) {
@@ -231,10 +232,12 @@ fun PhotoDetailDialog(
                             .build()
                     }
                 }
+                val previewUrl = fallbackImages.getOrNull(pageIndex)
+                    ?.takeIf { it.isNotBlank() && it != imageUrl }
 
                 SubcomposeAsyncImage(
                     model = imageRequest,
-                    contentDescription = "Visualização da foto em alta qualidade",
+                    contentDescription = "Visualização da imagem",
                     contentScale = if (rotationAngle % 180f != 0f) ContentScale.Fit else ContentScale.Fit,
                     loading = {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -245,8 +248,28 @@ fun PhotoDetailDialog(
                         if (capturedBitmap != null && capturedBitmap!!.width > 20) {
                             Image(
                                 bitmap = capturedBitmap!!.asImageBitmap(),
-                                contentDescription = "Foto capturada em alta definição",
+                                contentDescription = "Foto capturada",
                                 contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else if (previewUrl != null) {
+                            SubcomposeAsyncImage(
+                                model = previewUrl,
+                                contentDescription = "Prévia da imagem",
+                                contentScale = ContentScale.Fit,
+                                loading = {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(color = TikTokRed, modifier = Modifier.size(36.dp))
+                                    }
+                                },
+                                error = {
+                                    Text(
+                                        text = "A fonte não permitiu carregar a imagem nem a prévia.",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(32.dp)
+                                    )
+                                },
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
@@ -265,14 +288,14 @@ fun PhotoDetailDialog(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Visualização protegida",
+                                    text = "Não foi possível carregar a imagem original",
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Baixe a imagem usando o botão abaixo",
+                                    text = "A fonte não disponibilizou uma prévia alternativa.",
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 12.sp
                                 )

@@ -179,6 +179,9 @@ object ScrollSearchStateBus {
     private val _fullscreenImages = MutableStateFlow<List<String>>(emptyList())
     val fullscreenImages: StateFlow<List<String>> = _fullscreenImages.asStateFlow()
 
+    private val _fullscreenFallbackImages = MutableStateFlow<List<String>>(emptyList())
+    val fullscreenFallbackImages: StateFlow<List<String>> = _fullscreenFallbackImages.asStateFlow()
+
     private val _fullscreenInitialIndex = MutableStateFlow(0)
     val fullscreenInitialIndex: StateFlow<Int> = _fullscreenInitialIndex.asStateFlow()
 
@@ -219,8 +222,16 @@ object ScrollSearchStateBus {
             } else {
                 _unreadNotificationCount.value = 1
             }
-            val tagSuffix = if (_selectedTag.value.isNotEmpty() && _selectedTag.value != "tudo") " ${_selectedTag.value}" else ""
-            _searchBarText.value = "@$clean$tagSuffix"
+        }
+        updateDetectedCreatorQuery(clean)
+    }
+
+    private fun updateDetectedCreatorQuery(username: String) {
+        val tagSuffix = if (_selectedTag.value.isNotEmpty() && _selectedTag.value != "tudo") " ${_selectedTag.value}" else ""
+        val platformSuffix = if (_activeDetectedPlatform.value == com.example.model.SocialPlatform.X) " X Twitter" else ""
+        val nextQuery = "@$username$platformSuffix$tagSuffix"
+        if (_searchBarText.value != nextQuery) {
+            _searchBarText.value = nextQuery
             notifyEffectiveQueryChanged()
         }
     }
@@ -307,7 +318,10 @@ object ScrollSearchStateBus {
     }
 
     fun setActiveDetectedPlatform(platform: com.example.model.SocialPlatform?) {
-        _activeDetectedPlatform.value = platform
+        if (_activeDetectedPlatform.value != platform) {
+            _activeDetectedPlatform.value = platform
+            _currentUsername.value?.let(::updateDetectedCreatorQuery)
+        }
     }
 
     fun setVersion(version: OverlayUiVersion) {
@@ -444,7 +458,8 @@ object ScrollSearchStateBus {
     fun openFullscreenPhoto(
         selectedUrl: String,
         allUrls: List<String> = emptyList(),
-        explicitIndex: Int = -1
+        explicitIndex: Int = -1,
+        fallbackUrls: List<String> = emptyList()
     ) {
         _currentCapturedBitmap.value = null
         val list = if (allUrls.isNotEmpty()) allUrls else listOf(selectedUrl)
@@ -455,6 +470,7 @@ object ScrollSearchStateBus {
             if (idx >= 0) idx else 0
         }
         _fullscreenImages.value = list
+        _fullscreenFallbackImages.value = fallbackUrls
         _fullscreenInitialIndex.value = index
         _isPhotoDetailOpen.value = true
     }
@@ -482,6 +498,7 @@ object ScrollSearchStateBus {
             0
         }
         _fullscreenImages.value = list
+        _fullscreenFallbackImages.value = emptyList()
         _fullscreenInitialIndex.value = index
         _isPhotoDetailOpen.value = true
     }
@@ -489,6 +506,7 @@ object ScrollSearchStateBus {
     fun closeFullscreenPhoto() {
         _currentCapturedBitmap.value = null
         _isPhotoDetailOpen.value = false
+        _fullscreenFallbackImages.value = emptyList()
         _rotationAngle.value = 0f
     }
 

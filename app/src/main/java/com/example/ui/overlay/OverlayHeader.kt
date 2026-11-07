@@ -378,7 +378,7 @@ fun OverlayHeader(
 
                 Spacer(modifier = Modifier.width(3.dp))
 
-                // Filtro de Alta Qualidade (HD)
+                // Provider image-size preference
                 val isHighQualityFilter by ScrollSearchStateBus.isHighQualityFilterEnabled.collectAsState()
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -393,7 +393,7 @@ fun OverlayHeader(
                         .testTag("hd_filter_toggle_button")
                 ) {
                     Text(
-                        text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                        text = if (isHighQualityFilter) "Tamanho: ON" else "Tamanho: OFF",
                         color = if (isHighQualityFilter) TikTokCyan else textMutedColor,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,

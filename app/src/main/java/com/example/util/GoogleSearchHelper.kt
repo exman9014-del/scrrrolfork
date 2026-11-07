@@ -2,6 +2,7 @@ package com.example.util
 
 import android.util.Log
 import com.example.model.PhotoItem
+import com.example.model.ImageQuality
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,6 +18,14 @@ data class GoogleCustomSearchPage(
     val photos: List<PhotoItem>,
     val nextStartIndex: Int?,
     val errorMessage: String? = null
+)
+
+data class PremiumProviderResult(
+    val title: String,
+    val url: String,
+    val previewUrl: String?,
+    val description: String,
+    val source: String
 )
 
 object GoogleSearchHelper {
@@ -658,7 +667,8 @@ object GoogleSearchHelper {
         start: Int = 1,
         num: Int = 100,
         highQualityOnly: Boolean = true,
-        safeSearchDisabled: Boolean = true
+        safeSearchDisabled: Boolean = true,
+        quality: ImageQuality = ImageQuality.HIGH
     ): String? {
         val baseUrl = sanitizeSearchApiUrl(apiUrl)
         val cleanQuery = query.trim()
@@ -672,8 +682,83 @@ object GoogleSearchHelper {
             add("start=$start")
             add("safe=${if (safeSearchDisabled) "off" else "active"}")
             add("highQuality=${if (highQualityOnly) "true" else "false"}")
+            add("quality=${quality.code}")
         }.joinToString("&")
         return "$baseUrl/api/search?$params"
+    }
+
+    internal fun buildPremiumProviderSearchUrl(
+        provider: com.example.model.PremiumSearchProvider,
+        query: String,
+        imageUrl: String = "",
+        apiUrl: String = getSearchApiUrl()
+    ): String? {
+        val baseUrl = sanitizeSearchApiUrl(apiUrl)
+        val cleanQuery = query.trim()
+        val cleanImageUrl = imageUrl.trim()
+        if (baseUrl.isBlank()) return null
+        if (provider.requiresImageUrl) {
+            if (!cleanImageUrl.startsWith("https://", ignoreCase = true)) return null
+        } else if (cleanQuery.length !in 2..150) {
+            return null
+        }
+        val params = buildList {
+            add("provider=${provider.id}")
+            if (cleanQuery.isNotBlank()) add("q=${URLEncoder.encode(cleanQuery, "UTF-8")}")
+            if (cleanImageUrl.isNotBlank()) add("imageUrl=${URLEncoder.encode(cleanImageUrl, "UTF-8")}")
+            add("safe=${if (com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value) "off" else "active"}")
+            add("highQuality=${com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value}")
+            add("quality=${com.example.data.ScrollSearchStateBus.imageQuality.value.code}")
+        }.joinToString("&")
+        return "$baseUrl/api/search?$params"
+    }
+
+    suspend fun fetchPremiumProviderResults(
+        provider: com.example.model.PremiumSearchProvider,
+        query: String,
+        imageUrl: String = "",
+        apiUrl: String = getSearchApiUrl()
+    ): Result<List<PremiumProviderResult>> = withContext(Dispatchers.IO) {
+        val url = buildPremiumProviderSearchUrl(provider, query, imageUrl, apiUrl)
+            ?: return@withContext Result.failure(IOException("Confira o backend e os dados da busca."))
+        try {
+            val request = Request.Builder().url(url).get().build()
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val message = runCatching { JSONObject(body).optString("error") }
+                        .getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "A busca falhou (HTTP ${response.code})."
+                    return@withContext Result.failure(IOException(message))
+                }
+                val json = JSONObject(body)
+                val items = json.optJSONArray("items") ?: org.json.JSONArray()
+                val results = buildList {
+                    for (index in 0 until items.length()) {
+                        val item = items.optJSONObject(index) ?: continue
+                        val resultUrl = item.optString("link").takeIf { it.startsWith("https://", true) } ?: continue
+                        val preview = item.optString("previewUrl").takeIf { it.startsWith("https://", true) }
+                        add(
+                            PremiumProviderResult(
+                                title = item.optString("title").ifBlank { "Resultado" },
+                                url = resultUrl,
+                                previewUrl = preview,
+                                description = item.optString("description"),
+                                source = item.optString("displayLink")
+                            )
+                        )
+                    }
+                }
+                Result.success(results)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: JSONException) {
+            Result.failure(IOException("O backend retornou uma resposta inválida.", e))
+        }
     }
 
     internal fun mapGoogleCustomSearchResponse(query: String, json: JSONObject): GoogleCustomSearchPage {
@@ -693,7 +778,8 @@ object GoogleSearchHelper {
                         title = item.optString("title").ifBlank { "Imagem" },
                         sourceDomain = item.optString("displayLink").ifBlank { "Google Images" },
                         width = image?.optInt("width", 0) ?: 0,
-                        height = image?.optInt("height", 0) ?: 0
+                        height = image?.optInt("height", 0) ?: 0,
+                        previewUrl = item.optString("previewUrl").takeIf { it.startsWith("https://", true) }
                     )
                 )
             }
@@ -720,7 +806,8 @@ object GoogleSearchHelper {
             start = start,
             num = num,
             highQualityOnly = com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value,
-            safeSearchDisabled = com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value
+            safeSearchDisabled = com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value,
+            quality = com.example.data.ScrollSearchStateBus.imageQuality.value
         )
 
         if (url == null) {
@@ -742,7 +829,12 @@ object GoogleSearchHelper {
             client.newCall(request).execute().use { response ->
                 val bodyString = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    val message = when (response.code) {
+                    val providerMessage = try {
+                        JSONObject(bodyString).optString("error").takeIf { it.isNotBlank() }
+                    } catch (_: JSONException) {
+                        null
+                    }
+                    val message = providerMessage ?: when (response.code) {
                         400 -> "A consulta ou paginação enviada ao backend é inválida."
                         401, 403 -> "O provedor de busca recusou a solicitação. Confira a chave SerpApi no Vercel."
                         429 -> "A cota de busca SerpApi foi atingida. Confira o plano da conta."
@@ -752,16 +844,6 @@ object GoogleSearchHelper {
                     Log.e(TAG, "Search API request failed with HTTP ${response.code}.")
                     return@withContext GoogleCustomSearchPage(emptyList(), null, message)
                 }
-                if (bodyString.contains("Image search request failed (unauthorized)") ||
-                    bodyString.contains("Image search request failed (forbidden)")
-                ) {
-                    return@withContext GoogleCustomSearchPage(
-                        emptyList(),
-                        null,
-                        "A SerpApi recusou a chave configurada no Vercel. Confira a chave e o plano da conta."
-                    )
-                }
-
                 val json = try {
                     JSONObject(bodyString)
                 } catch (_: JSONException) {

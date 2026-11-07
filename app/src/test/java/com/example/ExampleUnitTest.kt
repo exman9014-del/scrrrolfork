@@ -123,7 +123,53 @@ class ExampleUnitTest {
     assertTrue(requestUrl.contains("start=11"))
     assertTrue(requestUrl.contains("safe=off"))
     assertTrue(requestUrl.contains("highQuality=true"))
+    assertTrue(requestUrl.contains("quality=HIGH"))
     assertTrue(requestUrl.contains("q=creator+photo"))
+  }
+
+  @Test
+  fun `premium request includes selected quality`() {
+    val url = com.example.util.GoogleSearchHelper.buildPremiumSearchUrl(
+      query = "creator photo",
+      apiUrl = "https://lens-search.example.test",
+      highQualityOnly = false,
+      quality = com.example.model.ImageQuality.ULTRA
+    )
+
+    assertTrue(requireNotNull(url).contains("quality=ULTRA"))
+    assertTrue(requireNotNull(url).contains("highQuality=false"))
+  }
+
+  @Test
+  fun `premium provider request encodes reverse image input and rejects insecure input`() {
+    val url = com.example.util.GoogleSearchHelper.buildPremiumProviderSearchUrl(
+      provider = com.example.model.PremiumSearchProvider.YANDEX_REVERSE,
+      query = "",
+      imageUrl = "https://images.example.test/photo.jpg",
+      apiUrl = "https://lens-search.example.test"
+    )
+
+    assertTrue(requireNotNull(url).contains("provider=yandex_reverse"))
+    assertTrue(requireNotNull(url).contains("imageUrl=https%3A%2F%2Fimages.example.test%2Fphoto.jpg"))
+    assertTrue(requireNotNull(url).contains("highQuality=true"))
+    assertTrue(requireNotNull(url).contains("quality=HIGH"))
+    assertNull(
+      com.example.util.GoogleSearchHelper.buildPremiumProviderSearchUrl(
+        provider = com.example.model.PremiumSearchProvider.YANDEX_REVERSE,
+        query = "",
+        imageUrl = "http://images.example.test/photo.jpg",
+        apiUrl = "https://lens-search.example.test"
+      )
+    )
+    assertTrue(
+      requireNotNull(
+        com.example.util.GoogleSearchHelper.buildPremiumProviderSearchUrl(
+          provider = com.example.model.PremiumSearchProvider.TIKTOK_DISCOVER,
+          query = "dance trends",
+          apiUrl = "https://lens-search.example.test"
+        )
+      ).contains("provider=tiktok_discover")
+    )
   }
 
   @Test
@@ -154,6 +200,7 @@ class ExampleUnitTest {
             {
               "title": "Returned result",
               "link": "https://images.example.test/photo.jpg",
+              "previewUrl": "https://thumbs.example.test/photo.jpg",
               "displayLink": "images.example.test",
               "image": {"width": 1600, "height": 900}
             },
@@ -169,6 +216,7 @@ class ExampleUnitTest {
 
     assertEquals(2, page.photos.size)
     assertEquals("https://images.example.test/photo.jpg", page.photos.first().url)
+    assertEquals("https://thumbs.example.test/photo.jpg", page.photos.first().previewUrl)
     assertEquals(1600, page.photos.first().width)
     assertEquals(900, page.photos.first().height)
     assertEquals(0, page.photos.last().width)
@@ -197,6 +245,10 @@ class ExampleUnitTest {
 
     com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.BLUESKY)
     assertEquals(com.example.model.SocialPlatform.BLUESKY, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+
+    com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.X)
+    assertEquals(com.example.model.SocialPlatform.X, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+    assertEquals(com.example.model.SocialPlatform.X, com.example.model.SocialPlatform.fromPackage("com.twitter.android"))
 
     com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.TIKTOK)
     assertEquals(com.example.model.SocialPlatform.TIKTOK, com.example.data.ScrollSearchStateBus.selectedPlatform.value)

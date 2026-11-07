@@ -311,7 +311,7 @@ fun PureFloatingControlsPill(
                         .testTag("f_hd_filter_toggle_button")
                 ) {
                     Text(
-                        text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                        text = if (isHighQualityFilter) "Tamanho: ON" else "Tamanho: OFF",
                         color = if (isHighQualityFilter) com.example.ui.theme.TikTokCyan else Color.LightGray,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold

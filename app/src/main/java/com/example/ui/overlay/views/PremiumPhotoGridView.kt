@@ -77,6 +77,7 @@ fun PremiumPhotoGridView(
     val query = ScrollSearchStateBus.getEffectiveSearchQuery()
     val isDark by ScrollSearchStateBus.isDarkTheme.collectAsState()
     val searchApiUrl = ScrollSearchStateBus.getEffectiveSearchApiUrl()
+    val imageQuality by ScrollSearchStateBus.imageQuality.collectAsState()
     val hasMoreResults by ScrollSearchStateBus.nextPageStartIndex.collectAsState()
     val lastCustomSearchError by ScrollSearchStateBus.lastCustomSearchError.collectAsState()
 
@@ -192,7 +193,7 @@ fun PremiumPhotoGridView(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Buscando imagens com filtro de tamanho grande para \"$query\"",
+                        text = "Prioridade de tamanho ${imageQuality.title.lowercase()} para \"$query\"",
                         color = Color.LightGray,
                         fontSize = 11.sp
                     )
@@ -272,7 +273,7 @@ fun PremiumPhotoGridView(
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             AsyncImage(
-                                model = photo.url,
+                                model = photo.previewUrl ?: photo.url,
                                 contentDescription = photo.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -311,7 +312,12 @@ fun PremiumPhotoGridView(
                                     onClick = {
                                         val allUrls = photos.map { it.url }
                                         val index = photos.indexOf(photo)
-                                        ScrollSearchStateBus.openFullscreenPhoto(photo.url, allUrls, index)
+                                        ScrollSearchStateBus.openFullscreenPhoto(
+                                            photo.url,
+                                            allUrls,
+                                            index,
+                                            photos.map { it.previewUrl.orEmpty() }
+                                        )
                                     },
                                     modifier = Modifier
                                         .size(28.dp)

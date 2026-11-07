@@ -74,6 +74,16 @@ enum class SocialPlatform(
         primaryColor = Color(0xFF0085FF),
         accentColor = Color(0xFF1185FE),
         sampleCreators = listOf("bsky.app", "jay.bsky.team", "nytimes.com", "theverge.com")
+    ),
+    X(
+        id = "x",
+        displayName = "X",
+        tagline = "Posts, perfis e criadores",
+        packageNames = listOf("com.twitter.android"),
+        webFallbackUrl = "https://x.com",
+        primaryColor = Color(0xFF000000),
+        accentColor = Color(0xFF1D9BF0),
+        sampleCreators = listOf("x", "NASA", "YouTube", "TheRock", "taylorswift13")
     );
 
     companion object {

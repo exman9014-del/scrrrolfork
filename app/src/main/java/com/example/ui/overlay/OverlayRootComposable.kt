@@ -54,6 +54,7 @@ fun OverlayRootComposable(
     val heightRatio by ScrollSearchStateBus.heightRatio.collectAsState()
     val isPhotoDetailOpen by ScrollSearchStateBus.isPhotoDetailOpen.collectAsState()
     val fullscreenImages by ScrollSearchStateBus.fullscreenImages.collectAsState()
+    val fullscreenFallbackImages by ScrollSearchStateBus.fullscreenFallbackImages.collectAsState()
     val fullscreenInitialIndex by ScrollSearchStateBus.fullscreenInitialIndex.collectAsState()
 
     val isPremiumActive by ScrollSearchStateBus.isPremiumActive.collectAsState()
@@ -91,6 +92,7 @@ fun OverlayRootComposable(
         } else if (isPhotoDetailOpen && (fullscreenImages.isNotEmpty() || capturedBitmap != null)) {
             PhotoDetailDialog(
                 images = fullscreenImages,
+                fallbackImages = fullscreenFallbackImages,
                 initialIndex = fullscreenInitialIndex,
                 onDismiss = {
                     ScrollSearchStateBus.closeFullscreenPhoto()
@@ -153,7 +155,12 @@ fun OverlayRootComposable(
                                 onPhotoClick = { photo ->
                                     val allUrls = photos.map { it.url }
                                     val index = photos.indexOf(photo)
-                                    ScrollSearchStateBus.openFullscreenPhoto(photo.url, allUrls, index)
+                                    ScrollSearchStateBus.openFullscreenPhoto(
+                                        photo.url,
+                                        allUrls,
+                                        index,
+                                        photos.map { it.previewUrl.orEmpty() }
+                                    )
                                 },
                                 onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
                                 onLoadMore = { ScrollSearchStateBus.loadMoreCustomSearchPhotos() },
@@ -262,7 +269,12 @@ fun OverlayRootComposable(
                                 onPhotoClick = { photo ->
                                     val allUrls = photos.map { it.url }
                                     val index = photos.indexOf(photo)
-                                    ScrollSearchStateBus.openFullscreenPhoto(photo.url, allUrls, index)
+                                    ScrollSearchStateBus.openFullscreenPhoto(
+                                        photo.url,
+                                        allUrls,
+                                        index,
+                                        photos.map { it.previewUrl.orEmpty() }
+                                    )
                                 },
                                 onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
                                 onLoadMore = { ScrollSearchStateBus.loadMoreCustomSearchPhotos() },
