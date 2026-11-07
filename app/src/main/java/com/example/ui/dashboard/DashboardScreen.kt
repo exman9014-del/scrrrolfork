@@ -485,6 +485,58 @@ fun DashboardScreen(
                 }
             }
 
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(surfaceColor)
+                        .padding(vertical = 14.dp)
+                ) {
+                    Text(
+                        text = "Buscas Premium",
+                        color = textColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Text(
+                        text = "Google, Yandex e TikTok; contas Básicas veem os cards bloqueados.",
+                        color = textMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(PremiumSearchProvider.entries) { provider ->
+                            PremiumProviderCard(
+                                provider = provider,
+                                isLocked = !isPremiumActive,
+                                isDark = isDark,
+                                onClick = {
+                                    if (!isPremiumActive) {
+                                        showPremiumRequired = true
+                                    } else {
+                                        providerQuery = if (provider.requiresImageUrl) {
+                                            ""
+                                        } else {
+                                            ScrollSearchStateBus.getEffectiveSearchQuery()
+                                        }
+                                        reverseImageUrl = ""
+                                        providerResults = emptyList()
+                                        providerSearchError = null
+                                        selectedPremiumProvider = provider
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             // Image quality filters are used by both Premium and F-version searches.
             item {
                 Card(
@@ -604,59 +656,7 @@ fun DashboardScreen(
                 }
             }
 
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(surfaceColor)
-                        .padding(vertical = 14.dp)
-                ) {
-                    Text(
-                        text = "Buscas Premium",
-                        color = textColor,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    Text(
-                        text = "Recursos SerpApi; contas Básicas veem os cards bloqueados.",
-                        color = textMuted,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(PremiumSearchProvider.entries) { provider ->
-                            PremiumProviderCard(
-                                provider = provider,
-                                isLocked = !isPremiumActive,
-                                isDark = isDark,
-                                onClick = {
-                                    if (!isPremiumActive) {
-                                        showPremiumRequired = true
-                                    } else {
-                                        providerQuery = if (provider.requiresImageUrl) {
-                                            ""
-                                        } else {
-                                            ScrollSearchStateBus.getEffectiveSearchQuery()
-                                        }
-                                        reverseImageUrl = ""
-                                        providerResults = emptyList()
-                                        providerSearchError = null
-                                        selectedPremiumProvider = provider
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Search Engine & Safe Search (Anti-Block & No SafeSearch filter)
+            // Search engine and SafeSearch preference.
             item {
                 Card(
                     shape = RoundedCornerShape(18.dp),
@@ -786,7 +786,7 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Sem Censura Toggle (Safe: OFF / Safe: ON)
+                        // SafeSearch toggle; this cannot override provider-side policies.
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = if (isSafeSearchDisabled) Color(0xFF1B5E20).copy(alpha = 0.35f) else (if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)),
@@ -808,7 +808,7 @@ fun DashboardScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = if (isSafeSearchDisabled) "Modo Sem Censura: ATIVADO" else "Modo Sem Censura: DESATIVADO",
+                                            text = if (isSafeSearchDisabled) "SafeSearch: DESLIGADO" else "SafeSearch: LIGADO",
                                             color = if (isSafeSearchDisabled) Color(0xFF00E676) else textColor,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
@@ -828,7 +828,7 @@ fun DashboardScreen(
                                         }
                                     }
                                     Text(
-                                        text = "Exibe todos os resultados sem restrição no Google, DuckDuckGo e Bing",
+                                        text = "Solicita menos filtragem quando suportado; provedores e fontes ainda podem limitar resultados.",
                                         color = textMuted,
                                         fontSize = 11.sp
                                     )
@@ -891,7 +891,7 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Filtro de Alta Qualidade (Apenas Imagens HD)
+                        // Size preference filter; it cannot guarantee image resolution.
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = if (isHighQualityFilter) TikTokCyan.copy(alpha = 0.20f) else (if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)),
@@ -933,7 +933,7 @@ fun DashboardScreen(
                                         }
                                     }
                                     Text(
-                                        text = "Filtra apenas fotos e imagens grandes em alta resolução no Google, Bing, DuckDuckGo, Yahoo e Yandex",
+                                        text = "Solicita imagens maiores quando o mecanismo aceita o filtro; resolução e acesso dependem da fonte.",
                                         color = textMuted,
                                         fontSize = 11.sp
                                     )
@@ -1642,6 +1642,45 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(provider.description, color = textMuted, fontSize = 12.sp)
+                    Text(
+                        "Tamanho preferido da imagem",
+                        color = textColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(com.example.model.ImageQuality.entries) { quality ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (imageQuality == quality) IgOrange else DarkSurfaceElevated,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { ScrollSearchStateBus.setImageQuality(quality) }
+                            ) {
+                                Text(
+                                    quality.title,
+                                    color = if (imageQuality == quality) Color.White else textColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Switch(
+                            checked = isSafeSearchDisabled,
+                            onCheckedChange = { ScrollSearchStateBus.setSafeSearchDisabled(it) }
+                        )
+                        Text(
+                            "SafeSearch desligado; o provedor ainda pode filtrar resultados.",
+                            color = textMuted,
+                            fontSize = 10.sp
+                        )
+                    }
                     if (!provider.requiresImageUrl) {
                         OutlinedTextField(
                             value = providerQuery,

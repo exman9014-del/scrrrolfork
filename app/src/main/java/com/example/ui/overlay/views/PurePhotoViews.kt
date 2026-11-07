@@ -247,7 +247,7 @@ fun PureFloatingControlsPill(
                     }
                 }
 
-                // SafeSearch toggle button right in the floating pill ("Sem Censura")
+                // SafeSearch toggle; provider-side restrictions may still apply.
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))

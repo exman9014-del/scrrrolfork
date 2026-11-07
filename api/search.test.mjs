@@ -102,6 +102,11 @@ test("SerpApi providers map their results and validate inputs", async () => {
       const requestUrl = new URL(upstreamUrl);
       assert.equal(requestUrl.searchParams.get("engine"), entry.engine);
       assert.equal(requestUrl.searchParams.get(entry.parameter), entry.imageUrl ?? entry.query);
+      if (entry.provider === "google" || entry.provider === "google_images") {
+        assert.equal(requestUrl.searchParams.get("safe"), "off");
+      } else if (entry.provider === "yandex_images") {
+        assert.equal(requestUrl.searchParams.get("family_mode"), "0");
+      }
       if (entry.provider === "google_images") {
         assert.equal(requestUrl.searchParams.get("imgsz"), "4mp");
       }
@@ -125,6 +130,23 @@ test("SerpApi providers map their results and validate inputs", async () => {
     assert.equal(legacyRequest.searchParams.get("engine"), "google_images");
     assert.equal(legacyRequest.searchParams.get("ijn"), "1");
     assert.equal(legacyDefault.body.queries.nextPage[0].startIndex, 201);
+
+    upstreamBody = { images_results: [] };
+    const anySize = createResponse();
+    await handler({
+      method: "GET",
+      query: { q: "creator", num: "100", quality: "ANY", highQuality: "true" },
+    }, anySize);
+    assert.equal(anySize.code, 200);
+    assert.equal(new URL(upstreamUrl).searchParams.has("imgsz"), false);
+
+    const safeSearchEnabled = createResponse();
+    await handler({
+      method: "GET",
+      query: { provider: "google_images", q: "creator", safe: "active" },
+    }, safeSearchEnabled);
+    assert.equal(safeSearchEnabled.code, 200);
+    assert.equal(new URL(upstreamUrl).searchParams.get("safe"), "active");
 
     upstreamBody = { visual_matches: [{ title: "Similar", link: "https://site.test/match" }] };
     const reverseResult = createResponse();

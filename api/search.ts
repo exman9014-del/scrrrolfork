@@ -67,13 +67,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Invalid pagination values." });
   }
   const imageSizeByQuality: Record<string, string> = {
+    ANY: "",
     LOW: "i",
     MEDIUM: "m",
     HIGH: "l",
     ULTRA: "4mp",
   };
   const imageSize = imageSizeByQuality[imageQuality];
-  if (!imageSize) {
+  if (imageQuality !== "ANY" && !imageSize) {
     return res.status(400).json({ error: "Invalid image quality." });
   }
 
@@ -99,10 +100,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       searchUrl.searchParams.set("hl", "pt-br");
       searchUrl.searchParams.set("gl", "br");
       searchUrl.searchParams.set("safe", safe);
-      if (highQuality) searchUrl.searchParams.set("imgsz", imageSize);
+      if (highQuality && imageSize) searchUrl.searchParams.set("imgsz", imageSize);
     } else if (provider === "yandex_images" || provider === "yandex_reverse") {
       searchUrl.searchParams.set("family_mode", safe === "active" ? "2" : "0");
     }
+  } else if (provider === "google") {
+    searchUrl.searchParams.set("safe", safe);
   }
 
   try {

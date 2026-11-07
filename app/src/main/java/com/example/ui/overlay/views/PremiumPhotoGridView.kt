@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -22,6 +23,7 @@ import androidx.compose.foundation.lazy.grid.item
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
@@ -40,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,8 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.example.data.ScrollSearchStateBus
+import com.example.model.ImageQuality
 import com.example.model.PhotoItem
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceElevated
@@ -78,6 +82,7 @@ fun PremiumPhotoGridView(
     val isDark by ScrollSearchStateBus.isDarkTheme.collectAsState()
     val searchApiUrl = ScrollSearchStateBus.getEffectiveSearchApiUrl()
     val imageQuality by ScrollSearchStateBus.imageQuality.collectAsState()
+    val isSafeSearchDisabled by ScrollSearchStateBus.isSafeSearchDisabled.collectAsState()
     val hasMoreResults by ScrollSearchStateBus.nextPageStartIndex.collectAsState()
     val lastCustomSearchError by ScrollSearchStateBus.lastCustomSearchError.collectAsState()
 
@@ -108,7 +113,7 @@ fun PremiumPhotoGridView(
                     Spacer(modifier = Modifier.width(6.dp))
                     Column {
                         Text(
-                            text = "👑 MODO PREMIUM • GOOGLE IMAGES",
+                            text = "MODO PREMIUM • GOOGLE IMAGES",
                             color = GoldPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -137,6 +142,62 @@ fun PremiumPhotoGridView(
                         )
                     }
                 }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "Tamanho: escolha uma preferência (não garante a resolução da fonte)",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ImageQuality.entries.forEach { quality ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (imageQuality == quality) GoldPrimary else DarkSurfaceElevated,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { ScrollSearchStateBus.setImageQuality(quality) }
+                            .testTag("premium_quality_${quality.code.lowercase()}")
+                    ) {
+                        Text(
+                            text = quality.title,
+                            color = if (imageQuality == quality) Color.Black else Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.Black.copy(alpha = 0.3f),
+                modifier = Modifier
+                    .padding(top = 5.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable {
+                        ScrollSearchStateBus.setSafeSearchDisabled(!isSafeSearchDisabled)
+                    }
+            ) {
+                Text(
+                    text = "SafeSearch ${if (isSafeSearchDisabled) "desligado" else "ligado"} • toque para alternar (quando suportado)",
+                    color = if (isSafeSearchDisabled) Color(0xFFB9F6CA) else Color(0xFFFFCC80),
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                )
             }
         }
 
@@ -193,7 +254,7 @@ fun PremiumPhotoGridView(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Prioridade de tamanho ${imageQuality.title.lowercase()} para \"$query\"",
+                        text = "Preferência: ${imageQuality.title.lowercase()} para \"$query\"",
                         color = Color.LightGray,
                         fontSize = 11.sp
                     )
@@ -272,10 +333,46 @@ fun PremiumPhotoGridView(
                             .testTag("premium_photo_item_${photo.id}")
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            AsyncImage(
+                            SubcomposeAsyncImage(
                                 model = photo.previewUrl ?: photo.url,
                                 contentDescription = photo.title,
                                 contentScale = ContentScale.Crop,
+                                loading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(DarkSurfaceElevated),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = GoldPrimary,
+                                            modifier = Modifier.size(22.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(DarkSurfaceElevated),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFFCC80),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Text(
+                                                text = "Prévia indisponível",
+                                                color = Color.White,
+                                                fontSize = 9.sp
+                                            )
+                                        }
+                                    }
+                                },
                                 modifier = Modifier.fillMaxSize()
                             )
 

@@ -59,7 +59,7 @@ object ScrollSearchStateBus {
     private val _selectedSearchType = MutableStateFlow(SearchType.IMAGES)
     val selectedSearchType: StateFlow<SearchType> = _selectedSearchType.asStateFlow()
 
-    // Sem Censura (SafeSearch OFF) - Enabled by default as requested
+    // SafeSearch disabled by default; providers can still apply their own restrictions.
     private val _isSafeSearchDisabled = MutableStateFlow(true)
     val isSafeSearchDisabled: StateFlow<Boolean> = _isSafeSearchDisabled.asStateFlow()
 

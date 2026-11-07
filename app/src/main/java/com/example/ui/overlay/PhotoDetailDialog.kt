@@ -104,6 +104,7 @@ fun PhotoDetailDialog(
 
     // "Ver celular virado" - 90° rotation state to view landscape/horizontal photos completely!
     var rotationAngle by remember { mutableFloatStateOf(0f) }
+    var preferOriginal by remember { mutableStateOf(false) }
 
     // User preference: retain zoom level when dragging to the next image
     var keepZoomOnSwipe by remember { mutableStateOf(true) }
@@ -120,6 +121,7 @@ fun PhotoDetailDialog(
 
     // When page changes, reset offset to center
     LaunchedEffect(pagerState.currentPage) {
+        preferOriginal = false
         if (!keepZoomOnSwipe) {
             scale = 1f
         }
@@ -206,10 +208,12 @@ fun PhotoDetailDialog(
                     }
                 }
 
-                // Resolve highest quality model: always prefer decoded Base64 or imageUrl first
-                // because hardware-accelerated WebView bitmap capture can be black on the first frame.
+                val previewUrl = fallbackImages.getOrNull(pageIndex)
+                    ?.takeIf { it.isNotBlank() && it != imageUrl }
+
                 val modelToUse: Any = when {
                     decodedBase64Bitmap != null -> decodedBase64Bitmap
+                    !preferOriginal && previewUrl != null -> previewUrl
                     imageUrl.isNotBlank() -> imageUrl
                     isCurrentCaptured && capturedBitmap != null -> capturedBitmap!!
                     capturedBitmap != null -> capturedBitmap!!
@@ -232,9 +236,6 @@ fun PhotoDetailDialog(
                             .build()
                     }
                 }
-                val previewUrl = fallbackImages.getOrNull(pageIndex)
-                    ?.takeIf { it.isNotBlank() && it != imageUrl }
-
                 SubcomposeAsyncImage(
                     model = imageRequest,
                     contentDescription = "Visualização da imagem",
@@ -252,7 +253,7 @@ fun PhotoDetailDialog(
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
-                        } else if (previewUrl != null) {
+                        } else if (previewUrl != null && preferOriginal) {
                             SubcomposeAsyncImage(
                                 model = previewUrl,
                                 contentDescription = "Prévia da imagem",
@@ -272,6 +273,40 @@ fun PhotoDetailDialog(
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
+                        } else if (previewUrl != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(44.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "A prévia não carregou",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "Tente abrir a imagem original da fonte.",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = { preferOriginal = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = TikTokRed)
+                                ) {
+                                    Text("Tentar original", color = Color.White)
+                                }
+                            }
                         } else {
                             Column(
                                 modifier = Modifier
@@ -293,9 +328,8 @@ fun PhotoDetailDialog(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "A fonte não disponibilizou uma prévia alternativa.",
+                                    text = "A fonte pode bloquear o acesso direto.",
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 12.sp
                                 )
@@ -421,6 +455,24 @@ fun PhotoDetailDialog(
                     color = if (scale > 1.05f) TikTokCyan else Color.LightGray,
                     fontSize = 10.sp
                 )
+                if (!fallbackImages.getOrNull(pagerState.currentPage).isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = TikTokCyan.copy(alpha = 0.2f),
+                        modifier = Modifier
+                            .padding(top = 3.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { preferOriginal = !preferOriginal }
+                    ) {
+                        Text(
+                            text = if (preferOriginal) "Mostrar prévia" else "Tentar imagem original",
+                            color = TikTokCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
 
             // "Ver Celular Virado" / Rotate 90° Button (as requested: "icone p ver celular virado isso pq algumas fotos visualiza inteira virado")

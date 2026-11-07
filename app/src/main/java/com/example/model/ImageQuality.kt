@@ -6,6 +6,12 @@ enum class ImageQuality(
     val subtitle: String,
     val tbsParam: String
 ) {
+    ANY(
+        code = "ANY",
+        title = "Qualquer tamanho",
+        subtitle = "Sem filtro de resolução; inclui todos os tamanhos disponíveis",
+        tbsParam = ""
+    ),
     LOW(
         code = "LOW",
         title = "Baixa",

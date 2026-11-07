@@ -141,6 +141,19 @@ class ExampleUnitTest {
   }
 
   @Test
+  fun `premium request supports any image size without provider filter`() {
+    val url = com.example.util.GoogleSearchHelper.buildPremiumSearchUrl(
+      query = "creator photo",
+      apiUrl = "https://lens-search.example.test",
+      quality = com.example.model.ImageQuality.ANY
+    )
+
+    val requestUrl = requireNotNull(url)
+    assertTrue(requestUrl.contains("quality=HIGH"))
+    assertTrue(requestUrl.contains("highQuality=false"))
+  }
+
+  @Test
   fun `premium provider request encodes reverse image input and rejects insecure input`() {
     val url = com.example.util.GoogleSearchHelper.buildPremiumProviderSearchUrl(
       provider = com.example.model.PremiumSearchProvider.YANDEX_REVERSE,

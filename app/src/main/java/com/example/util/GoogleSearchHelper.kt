@@ -50,8 +50,11 @@ object GoogleSearchHelper {
         val encoded = URLEncoder.encode(query, "UTF-8")
         val effectiveQuality = if (qualityParam.isNotBlank()) {
             qualityParam
-        } else if (isHighQualityFilter) {
-            "&tbs=isz:l"
+        } else if (
+            isHighQualityFilter &&
+            com.example.data.ScrollSearchStateBus.imageQuality.value != ImageQuality.ANY
+        ) {
+            com.example.data.ScrollSearchStateBus.imageQuality.value.tbsParam
         } else {
             ""
         }
@@ -681,8 +684,8 @@ object GoogleSearchHelper {
             add("num=$effectiveNum")
             add("start=$start")
             add("safe=${if (safeSearchDisabled) "off" else "active"}")
-            add("highQuality=${if (highQualityOnly) "true" else "false"}")
-            add("quality=${quality.code}")
+            add("highQuality=${if (highQualityOnly && quality != ImageQuality.ANY) "true" else "false"}")
+            add("quality=${if (quality == ImageQuality.ANY) ImageQuality.HIGH.code else quality.code}")
         }.joinToString("&")
         return "$baseUrl/api/search?$params"
     }
@@ -696,6 +699,7 @@ object GoogleSearchHelper {
         val baseUrl = sanitizeSearchApiUrl(apiUrl)
         val cleanQuery = query.trim()
         val cleanImageUrl = imageUrl.trim()
+        val selectedQuality = com.example.data.ScrollSearchStateBus.imageQuality.value
         if (baseUrl.isBlank()) return null
         if (provider.requiresImageUrl) {
             if (!cleanImageUrl.startsWith("https://", ignoreCase = true)) return null
@@ -707,8 +711,8 @@ object GoogleSearchHelper {
             if (cleanQuery.isNotBlank()) add("q=${URLEncoder.encode(cleanQuery, "UTF-8")}")
             if (cleanImageUrl.isNotBlank()) add("imageUrl=${URLEncoder.encode(cleanImageUrl, "UTF-8")}")
             add("safe=${if (com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value) "off" else "active"}")
-            add("highQuality=${com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value}")
-            add("quality=${com.example.data.ScrollSearchStateBus.imageQuality.value.code}")
+            add("highQuality=${com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value && selectedQuality != ImageQuality.ANY}")
+            add("quality=${if (selectedQuality == ImageQuality.ANY) ImageQuality.HIGH.code else selectedQuality.code}")
         }.joinToString("&")
         return "$baseUrl/api/search?$params"
     }
@@ -805,7 +809,8 @@ object GoogleSearchHelper {
             apiUrl = apiUrl,
             start = start,
             num = num,
-            highQualityOnly = com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value,
+            highQualityOnly = com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value &&
+                com.example.data.ScrollSearchStateBus.imageQuality.value != ImageQuality.ANY,
             safeSearchDisabled = com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value,
             quality = com.example.data.ScrollSearchStateBus.imageQuality.value
         )
