@@ -1,0 +1,8 @@
+{
+  "name": "TikTokLens",
+  "description": "Detector de criadores em vídeos do TikTok com overlay flutuante, busca avançada de imagens, vídeos e sites, sem censura e super tela cheia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

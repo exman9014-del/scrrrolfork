@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">TikTokLens</string>
+    <string name="accessibility_service_label">TikTokLens Detector de Vídeos</string>
+    <string name="accessibility_service_description">Detecta o criador de conteúdo em vídeos do TikTok para busca instantânea de fotos, vídeos e referências em segundo plano.</string>
+</resources>
